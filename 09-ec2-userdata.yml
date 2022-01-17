@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 instance with security group
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Choose your environment
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+
+Conditions:
+  EIPCond: !Equals [!Ref Environment, prod]
+
+Resources:
+  CFEC2INSTANCE:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0cd3dfa4e37921605
+      InstanceType: t2.micro
+      KeyName: cfn-key-1
+      Tags:
+        - Key: Name
+          Value: CFEC2INSTANCE
+        - Key: Purpose
+          Value: Testing
+      SecurityGroups:
+        - !Ref SSHSG
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          sudo yum update
+          sudo yum -y erase java-1.7.0-openjdk.x86_64
+          sudo yum -y install java-1.8.0-openjdk.x86_64
+          sudo yum -y install java-1.8.0-openjdk-devel
+          sudo yum -y install tomcat8
+          service tomcat8 start
+          mkdir /usr/share/tomcat8/webapps/ROOT
+          touch /usr/share/tomcat8/webapps/ROOT/index.html
+          echo "Cloud Formation Tomcat8" > /usr/share/tomcat8/webapps/ROOT/index.html
+  SSHSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SSH access
+      GroupName: SSHSG
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+  EIP:
+    Type: AWS::EC2::EIP
+    Condition: EIPCond
+    Properties:
+      InstanceId: !Ref CFEC2INSTANCE
+
+Outputs:
+  APPURL:
+    Description: Tomcat Application Access URL
+    Value: !Sub https://${CFEC2INSTANCE.PublicDnsName}:8080/index.html
+  InstanceIP:
+    Description: Server Public DNS Name
+    Value: !GetAtt CFEC2INSTANCE.PublicDnsName
+

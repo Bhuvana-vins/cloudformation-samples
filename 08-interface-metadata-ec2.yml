@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 instance with security group
+
+Parameters:
+  InstanceName:
+    Type: String                      # String parameter type
+    Default: CFEC2INSTANCE
+    Description: Enter EC2 Instance Name. Default Value CFEC2INSTANCE
+  AppPort:
+    Type: Number                      # Number parameter type
+    Default: 80
+    Description: Application Port. Default Port 80
+  InstanceKeyPair:
+    Type: AWS::EC2::KeyPair::KeyName   # AWS specific parameter type
+    Description: Key Pair to connect EC2
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id> # SSM parameter type
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - t2.small
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:    # parameter group label
+          default: Param Group 1
+        Parameters:
+          - InstanceName
+          - InstanceType
+          - ImageId
+      - Label:
+          default: Param Group 2
+        Parameters:
+          - InstanceKeyPair
+          - AppPort
+    ParameterLabels:    # parameter wise label
+      AppPort:
+        default: Your application Port
+      InstanceKeyPair:
+        default: Be aware that once key name is selected we cannot change it
+
+Resources:
+  CFEC2INSTANCE:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref InstanceKeyPair
+      Tags:
+        - Key: Name
+          Value: !Ref InstanceName
+        - Key: Purpose
+          Value: Testing
+      SecurityGroups:
+        - !Ref SSHSG
+  SSHSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SSH access
+      GroupName: SSHSG
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: !Ref AppPort
+          ToPort: !Ref AppPort
+          CidrIp: 0.0.0.0/0
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref CFEC2INSTANCE
+

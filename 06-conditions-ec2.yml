@@ -1,0 +1,85 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Basic EC2 instance with Mappings and Conditions
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Select your environment
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+      - qa
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Select key pair
+
+Conditions:
+  EIPCond: !Equals [!Ref Environment, prod]
+  ProdSGCond: !Equals [!Ref Environment, prod]
+  #DevSGCond: !Equals [!Ref Environment, dev]
+  DevSGCond: !Not [{Condition: ProdSGCond}]
+  KeyNameCond: !And [!Equals [!Ref Environment, Prod],!Equals [!Ref 'AWS::Region','us-east-1']]
+
+Mappings:
+  ImageMap:
+    us-east-2:
+      ImageId: ami-0fb653ca2d3203ac1
+    us-east-1:
+      ImageId: ami-04505e74c0741db8d
+  InstanceTypeMap:
+    dev:
+      InstanceType: t2.micro
+    prod:
+      InstanceType: t3.micro
+    qa:
+      InstanceType: t2.small
+
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !FindInMap
+        - InstanceTypeMap
+        - !Ref Environment
+        - InstanceType
+      ImageId: !FindInMap
+        - ImageMap
+        - !Ref 'AWS::Region'
+        - ImageId
+      Tags:
+        - Key: Name
+          Value: MyEC2Instance
+        - Key: Purpose
+          Value: Testing
+      KeyName: !If [KeyNameCond, cfn-key-1, cfn-key-2]
+      #SecurityGroups: !If [DevSGCond, [!Ref MySG], !Ref 'AWS::NoValue']
+      SecurityGroups: !If [DevSGCond, [!Ref DevSG], [!Ref ProdSG]]
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Condition: EIPCond
+    Properties:
+      InstanceId: !Ref MyEC2Instance
+  DevSG:
+    Type: AWS::EC2::SecurityGroup
+    Condition: DevSGCond
+    Properties:
+      GroupDescription: DevSG
+      GroupName: DevSG
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+  ProdSG:
+    Type: AWS::EC2::SecurityGroup
+    Condition: ProdSGCond
+    Properties:
+      GroupDescription: ProdSG
+      GroupName: ProdSG
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp: 0.0.0.0/0
+        

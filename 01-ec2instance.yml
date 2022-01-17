@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Basic EC2 instance
+
+Resources:
+  CFEC2INSTANCE:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0fb653ca2d3203ac1
+      InstanceType: t2.micro
+      DisableApiTermination: true
+      Monitoring: true
+      Tags:
+        - Key: "Name"
+          Value: "CFEC2Instance"
+        - Key: "Purpose"
+          Value: "Testing"
+      SecurityGroups:
+        - default
+      KeyName: cfn-key-1

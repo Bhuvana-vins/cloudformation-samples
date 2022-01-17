@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Basic EC2 instance with Mappings
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Select your environment
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Select key pair
+
+Mappings:
+  ImageMap:
+    us-east-2:
+      ImageId: ami-0fb653ca2d3203ac1
+    us-east-1:
+      ImageId: ami-04505e74c0741db8d
+  InstanceTypeMap:
+    dev:
+      InstanceType: t2.micro
+    prod:
+      InstanceType: t3.micro
+
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !FindInMap
+        - InstanceTypeMap
+        - !Ref Environment
+        - InstanceType
+      ImageId: !FindInMap
+        - ImageMap
+        - !Ref 'AWS::Region'
+        - ImageId
+      Tags:
+        - Key: Name
+          Value: MyEC2Instance
+        - Key: Purpose
+          Value: Testing
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - default
+  MyEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref MyEC2Instance

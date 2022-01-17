@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 instance with security group
+
+Resources:
+  CFEC2INSTANCE:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-03a0c45ebc70f98ea
+      InstanceType: t2.micro
+      KeyName: cfn-key-1
+      Tags:
+        - Key: Name
+          Value: CFEC2INSTANCE
+        - Key: Purpose
+          Value: Testing
+      SecurityGroups:
+        - !Ref SSHSG
+  SSHSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SSH access
+      GroupName: SSHSG
+      SecurityGroupIngress:
+        - IpProtocol: TCP
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: TCP
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+  EIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref CFEC2INSTANCE
+
