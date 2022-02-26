@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 with packages
+
+Parameters:
+  DBUsername:
+    Description: Enter your DB username
+    Type: String
+  DBPassword:
+    Description: Enter your DB password
+    Type: String
+    NoEcho: true
+
+Resources:
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Metadata:
+      AWS::CloudFormation::Init:
+        configSets:
+          App1:
+            - Install
+            - DBSetup
+          App2:
+            - Install
+        Install:
+          packages:
+            apt:
+              apache2 : []
+              php : []
+              libapache2-mod-php : []
+              mysql-server: []
+              php-mysql: []
+          files:
+            /var/www/html/index.html:
+              content: !Sub |
+                Apache index page from ${AWS::StackName} Cloudformation Stack
+              mode: 755
+              group: ubuntu
+              owner: ubuntu
+            /var/www/html/phpinfo.php:
+              content: |
+                <?php
+                  phpinfo();
+                ?>
+              mode: 755
+              group: ubuntu
+              owner: ubuntu
+            /var/www/html/mysql.php:
+              content: !Sub |
+                <?php
+                  $servername = "localhost";
+                  $username = ${DBUsername};
+                  $password = ${DBPassword};
+
+                  // Create connection
+                  $conn = new mysqli($servername, $username, $password);
+
+                  // Check connection
+                  if ($conn->connect_error) {
+                    die("Connection failed: " . $conn->connect_error);
+                  }
+                  echo "Connected successfully";
+                  ?>
+            /var/www/html/mysql_create_user.mysql:
+              content: !Sub |
+                CREATE USER '${DBUsername}'@'localhost' IDENTIFIED BY '${DBPassword}';
+                GRANT ALL PRIVILEGES ON * . * TO '${DBPassword}'@'localhost';
+          services:
+            sysvinit:
+              apache2:
+                enabled: true
+                ensureRunning: true
+        DBSetup:
+          commands:
+            cmd1:
+              command: "mysql -u root < /var/www/html/mysql_create_user.mysql"
+
+    Properties:
+      ImageId: ami-03a0c45ebc70f98ea
+      InstanceType: t2.nano
+      KeyName: cfn-key-2
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}
+        - Key: Purpose
+          Value: testing
+      SecurityGroups:
+        - default
+      UserData: 
+        Fn::Base64:
+          !Sub |
+            #!/bin/bash
+            sudo apt-get update -y
+            sudo apt-get install -y python3-setuptools
+            sudo mkdir -p /opt/aws/bin
+            sudo wget https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+            sudo python3 -m easy_install --script-dir /opt/aws/bin aws-cfn-bootstrap-py3-latest.tar.gz
+            sudo /opt/aws/bin/cfn-init -v -s ${AWS::StackName} -r MyEC2Instance --region ${AWS::Region} --configsets App2 || error_exit 'Failed to run cfn-init'
+            sudo /opt/aws/bin/cfn-signal -e $? --resource MyEC2Instance --stack ${AWS::StackName} --region ${AWS::Region} 
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT4M
+
+Outputs:
+  APPURL:
+    Description: Mysql Connection URL
+    Value: !Sub http://${MyEC2Instance.PublicIp}/mysql.php
