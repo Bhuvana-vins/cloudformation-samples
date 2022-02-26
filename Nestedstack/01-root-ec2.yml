@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: EC2 Base template
+
+Parameters:
+  EC2KeyPair:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Select EC2 KeyPair
+  VPCBlockfromEC2:
+    Type: String
+    Description: Enter VPC Cidr block value
+    Default: 10.0.0.0/16
+  SubnetBlockfromEC2:
+    Type: String
+    Description: Enter VPC Cidr block value
+    Default: 10.0.1.0/24
+
+Resources:
+  VPCStack:
+    Type: AWS::CloudFormation::Stack
+    Properties: 
+      TemplateURL: https://nestedstacks3.s3.amazonaws.com/nestedstacks/03-nested-vpc.yml
+      Parameters:
+        VPCBlock: !Ref VPCBlockfromEC2
+        SubnetBlock: !Ref SubnetBlockfromEC2
+      TimeoutInMinutes: 2
+  SGStack:
+    Type: AWS::CloudFormation::Stack
+    Properties: 
+      TemplateURL: https://nestedstacks3.s3.amazonaws.com/nestedstacks/02-nested-sg.yml
+      Parameters:
+        VPCId: !GetAtt VPCStack.Outputs.VPCId
+      TimeoutInMinutes: 2
+
+  MyVMInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0b0ea68c435eb488d
+      InstanceType: t2.micro
+      KeyName: !Ref EC2KeyPair
+      UserData: !Base64 |
+        #!/bin/bash
+        sudo apt-get update
+        sudo apt-get install default-jdk -y
+        sudo apt-get install tomcat8 -y
+        sudo service tomcat8 start
+        mkdir /usr/share/tomcat8/webapps/ROOT
+        touch /usr/share/tomcat8/webapps/ROOT/index.html
+        echo "Cloud Formation Tomcat8 Updated" > /var/lib/tomcat8/webapps/ROOT/index.html
+      SecurityGroupIds:
+        - !GetAtt SGStack.Outputs.SGID
+      SubnetId: !GetAtt VPCStack.Outputs.SubnetId
+Outputs:
+  APPURL:
+    Description: Tomcat App URL
+    Value: !Sub http://${MyVMInstance.PublicIp}:8080/index.html

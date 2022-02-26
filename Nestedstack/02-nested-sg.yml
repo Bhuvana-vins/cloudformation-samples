@@ -1,0 +1,32 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: SG nested stack
+
+Parameters:
+  VPCId: 
+    Description: Create security group in this respective VPC
+    Type: String
+
+Resources:
+  MyEC2SG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: My EC2 SG
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPCId
+
+Outputs:
+  SGID:
+    Description: Security Group ID
+    Value: !Ref MyEC2SG

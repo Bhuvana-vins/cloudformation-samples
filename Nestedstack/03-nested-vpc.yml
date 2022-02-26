@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: VPC nested stack
+
+Parameters:
+  VPCBlock:
+    Type: String
+    Description: Enter VPC Cidr block value
+    Default: 10.0.0.0/16
+  SubnetBlock:
+    Type: String
+    Description: Enter VPC Cidr block value
+    Default: 10.0.1.0/24
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VPCBlock
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: VPC1
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref SubnetBlock
+      AvailabilityZone: !Select
+       - '0'
+       - Fn::GetAZs:
+          !Ref AWS::Region
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: Subnet1
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: RouteTable1
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: 
+      RouteTableId: !Ref RouteTable
+      SubnetId: !Ref Subnet
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+     InternetGatewayId: !Ref InternetGateway
+     VpcId: !Ref VPC
+  Route: 
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref RouteTable
+
+Outputs:
+  VPCId:
+    Description: VPC Id
+    Value: !Ref VPC
+  SubnetId:
+    Description: Subnet Id
+    Value: !Ref Subnet
